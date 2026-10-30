@@ -1,0 +1,17 @@
+[Unit]
+Description=Refresh confirmed F1 championship data
+After=network-online.target f1-companion-backend.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=f1companion
+Group=f1companion
+WorkingDirectory=/opt/f1-companion
+EnvironmentFile=/etc/f1-companion/backend.env
+ExecStart=/opt/f1-companion/deploy/ec2/refresh-data.sh
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/f1-companion

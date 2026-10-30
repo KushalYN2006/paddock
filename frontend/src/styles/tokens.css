@@ -1,0 +1,43 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: dark;
+  --bg-base: #07080c;
+  --bg-raised: #101319;
+  --glass-bg: rgba(255, 255, 255, .055);
+  --glass-bg-strong: rgba(18, 21, 27, .86);
+  --glass-border: rgba(255, 255, 255, .11);
+  --glass-highlight: rgba(255, 255, 255, .12);
+  --glass-blur: 18px;
+  --glass-shadow: 0 18px 55px rgba(0, 0, 0, .3);
+  --accent-red: #e10600;
+  --accent-red-soft: rgba(225, 6, 0, .16);
+  --accent-cyan: #54c7e8;
+  --accent-amber: #f3bd56;
+  --accent-green: #56d6a0;
+  --text-primary: #f2f4f7;
+  --text-secondary: #a5acb7;
+  --text-tertiary: #747d89;
+  --radius-card: 18px;
+  --radius-control: 11px;
+  --display: "Arial Narrow", "Roboto Condensed", Impact, sans-serif;
+  --body: Inter, "Segoe UI", Arial, sans-serif;
+}
+
+* { box-sizing: border-box; }
+html { background: var(--bg-base); scroll-behavior: smooth; }
+body { margin: 0; min-width: 320px; color: var(--text-primary); font-family: var(--body); font-size: 14px; font-feature-settings: "tnum" 1; }
+button, select { font: inherit; }
+button, a, select { -webkit-tap-highlight-color: transparent; }
+::selection { color: white; background: rgba(225, 6, 0, .55); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .glass-surface, .glass-card, .topbar { background: rgba(15, 18, 23, .97) !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+}
+@media (prefers-contrast: more) {
+  :root { --text-secondary: #d4d9e0; --text-tertiary: #aab2bd; --glass-border: rgba(255,255,255,.28); }
+  .eyebrow, .sidebar-foot, .data-chip, .chart-axis, .race-name p, .mini-card p { color: #b7c0ca; }
+}

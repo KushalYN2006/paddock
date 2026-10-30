@@ -1,0 +1,298 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Season {
+  year            Int                   @id
+  isCurrent       Boolean               @default(false)
+  sourceId        String?
+  rounds          Round[]
+  entries         DriverSeasonEntry[]
+  rules           ScoringRuleSet[]
+  driverStandings DriverStanding[]
+  teamStandings   ConstructorStanding[]
+  predictionRuns  PredictionRun[]
+  dataStatus      DataStatus?
+}
+
+model Round {
+  id                String                @id @default(cuid())
+  seasonYear        Int
+  number            Int
+  name              String
+  scheduledStart    DateTime?
+  scheduleUpdatedAt DateTime?
+  sourceId          String?
+  isSprint          Boolean               @default(false)
+  circuitId         String?
+  season            Season                @relation(fields: [seasonYear], references: [year])
+  circuit           Circuit?              @relation(fields: [circuitId], references: [id])
+  results           Result[]
+  qualifying        QualifyingResult[]
+  pitStops          PitStop[]
+  recaps            RecapEntry[]
+  driverSnapshots   DriverStanding[]
+  teamSnapshots     ConstructorStanding[]
+
+  @@unique([seasonYear, number])
+}
+
+model Circuit {
+  id        String  @id @default(cuid())
+  sourceId  String? @unique
+  name      String
+  locality  String?
+  country   String?
+  latitude  Float?
+  longitude Float?
+  rounds    Round[]
+}
+
+model Driver {
+  id             String              @id @default(cuid())
+  sourceId       String?             @unique
+  givenName      String?
+  familyName     String?
+  displayName    String
+  nationality    String?
+  birthDate      DateTime?
+  biography      String?
+  imageUrl       String?
+  imageCredit    String?
+  entries        DriverSeasonEntry[]
+  results        Result[]
+  qualifying     QualifyingResult[]
+  pitStops       PitStop[]
+  driverStanding DriverStanding[]
+}
+
+model Constructor {
+  id           String                @id @default(cuid())
+  sourceId     String?               @unique
+  name         String
+  nationality  String?
+  logoUrl      String?
+  logoCredit   String?
+  entries      DriverSeasonEntry[]
+  results      Result[]
+  teamStanding ConstructorStanding[]
+}
+
+model DriverSeasonEntry {
+  id             String      @id @default(cuid())
+  seasonYear     Int
+  driverId       String
+  constructorId  String
+  racingNumber   Int?
+  validFromRound Int?
+  validToRound   Int?
+  season         Season      @relation(fields: [seasonYear], references: [year])
+  driver         Driver      @relation(fields: [driverId], references: [id])
+  team           Constructor @relation(fields: [constructorId], references: [id])
+
+  @@index([seasonYear, driverId])
+  @@index([seasonYear, constructorId])
+}
+
+model Result {
+  id             String      @id @default(cuid())
+  roundId        String
+  driverId       String
+  constructorId  String
+  sessionType    String // RACE or SPRINT
+  gridPosition   Int?
+  finishPosition Int?
+  classified     Boolean     @default(false)
+  status         String?
+  timeMillis     Int?
+  gapMillis      Int?
+  laps           Int?
+  points         Float       @default(0)
+  fastestLap     Int?
+  sourceId       String?
+  sourcePayload  Json?
+  round          Round       @relation(fields: [roundId], references: [id])
+  driver         Driver      @relation(fields: [driverId], references: [id])
+  team           Constructor @relation(fields: [constructorId], references: [id])
+
+  @@unique([roundId, driverId, sessionType])
+  @@index([roundId, sessionType, finishPosition])
+}
+
+model QualifyingResult {
+  id            String @id @default(cuid())
+  roundId       String
+  driverId      String
+  position      Int?
+  q1Millis      Int?
+  q2Millis      Int?
+  q3Millis      Int?
+  sourcePayload Json?
+  round         Round  @relation(fields: [roundId], references: [id])
+  driver        Driver @relation(fields: [driverId], references: [id])
+
+  @@unique([roundId, driverId])
+}
+
+model PitStop {
+  id             String @id @default(cuid())
+  roundId        String
+  driverId       String
+  lap            Int
+  stopNumber     Int?
+  durationMillis Int?
+  sourcePayload  Json?
+  round          Round  @relation(fields: [roundId], references: [id])
+  driver         Driver @relation(fields: [driverId], references: [id])
+
+  @@unique([roundId, driverId, lap])
+}
+
+model DriverStanding {
+  id           String   @id @default(cuid())
+  seasonYear   Int
+  throughRound Int
+  driverId     String
+  position     Int
+  points       Float
+  wins         Int      @default(0)
+  podiums      Int      @default(0)
+  poles        Int      @default(0)
+  calculatedAt DateTime @default(now())
+  season       Season   @relation(fields: [seasonYear], references: [year])
+  round        Round    @relation(fields: [seasonYear, throughRound], references: [seasonYear, number])
+  driver       Driver   @relation(fields: [driverId], references: [id])
+
+  @@unique([seasonYear, throughRound, driverId])
+  @@index([seasonYear, throughRound, position])
+}
+
+model ConstructorStanding {
+  id            String      @id @default(cuid())
+  seasonYear    Int
+  throughRound  Int
+  constructorId String
+  position      Int
+  points        Float
+  wins          Int         @default(0)
+  calculatedAt  DateTime    @default(now())
+  season        Season      @relation(fields: [seasonYear], references: [year])
+  round         Round       @relation(fields: [seasonYear, throughRound], references: [seasonYear, number])
+  team          Constructor @relation(fields: [constructorId], references: [id])
+
+  @@unique([seasonYear, throughRound, constructorId])
+  @@index([seasonYear, throughRound, position])
+}
+
+model ScoringRuleSet {
+  id                 String   @id @default(cuid())
+  seasonYear         Int
+  version            String
+  effectiveFrom      DateTime
+  sourceUrl          String
+  sourceArticle      String?
+  racePoints         Json
+  sprintPoints       Json
+  fastestLapRule     Json
+  reducedRaceRules   Json
+  sprintDistanceRule Json
+  tieBreakRules      Json
+  season             Season   @relation(fields: [seasonYear], references: [year])
+
+  @@unique([seasonYear, version])
+}
+
+model RecapEntry {
+  id          String   @id @default(cuid())
+  roundId     String
+  kind        String // FACT or INTERPRETATION
+  category    String
+  body        String
+  sourceUrl   String?
+  sourceLabel String?
+  authorId    String?
+  createdAt   DateTime @default(now())
+  round       Round    @relation(fields: [roundId], references: [id])
+}
+
+model GlossaryTerm {
+  id           String  @id
+  label        String
+  definition   String
+  learnMoreUrl String?
+  seasonFrom   Int?
+  seasonTo     Int?
+}
+
+model QuizQuestion {
+  id           String @id @default(cuid())
+  topic        String
+  question     String
+  options      Json
+  correctIndex Int
+  explanation  String
+  seasonFrom   Int?
+  seasonTo     Int?
+}
+
+model PredictionRun {
+  id           String   @id @default(cuid())
+  seasonYear   Int
+  modelVersion String
+  inputs       Json
+  outputs      Json
+  validation   Json?
+  createdAt    DateTime @default(now())
+  season       Season   @relation(fields: [seasonYear], references: [year])
+}
+
+model DataStatus {
+  id            String    @id @default(cuid())
+  seasonYear    Int       @unique
+  throughRound  Int       @default(0)
+  updatedAt     DateTime?
+  lastAttemptAt DateTime?
+  lastError     String?
+  stale         Boolean   @default(true)
+  provider      String
+  season        Season    @relation(fields: [seasonYear], references: [year])
+}
+
+model AdminUser {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  passwordHash String
+  enabled      Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+  auditLogs    AuditLog[]
+}
+
+model AuditLog {
+  id          String     @id @default(cuid())
+  adminUserId String?
+  actor       String     @default("configured-admin")
+  action      String
+  entityType  String
+  entityId    String
+  before      Json?
+  after       Json?
+  createdAt   DateTime   @default(now())
+  adminUser   AdminUser? @relation(fields: [adminUserId], references: [id])
+}
+
+model ManualOverride {
+  id            String    @id @default(cuid())
+  entityType    String
+  entityId      String
+  field         String
+  previousValue Json?
+  overrideValue Json
+  reason        String
+  createdAt     DateTime  @default(now())
+  revertedAt    DateTime?
+}
