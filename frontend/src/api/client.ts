@@ -69,11 +69,16 @@ export interface DriverProfile extends DirectoryPerson {
   career: { available: boolean; reason: string | null };
 }
 
+export type DriverCareer =
+  | { available: true; championships: number; starts: number; wins: number; podiums: number; poles: number; fastestLaps: number; sourceUrl: string; reason: null }
+  | { available: false; reason: string };
+
 export interface DirectoryTeam {
   id: string;
   name: string;
   nationality?: string | null;
   drivers?: string[];
+  currentStats: { available: boolean; throughRound: number; throughRoundName: string | null; position: number | null; points: number | null; wins: number | null };
 }
 
 export interface RaceDetail {

@@ -12,3 +12,5 @@
 .pnpm-store/
 .DS_Store
 .tmp/
+**/*.pem
+deploy/ec2/package/*.tar.gz

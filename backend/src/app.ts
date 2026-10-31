@@ -10,8 +10,10 @@ import { buildCalculatorSummary, calculateScenario } from './scoring/calculator.
 import { buildRaceRecapFacts, deriveRaceAnalysis } from './analysis/race-analysis.js';
 import { backtestPredictionModel, buildPredictionEstimate, type PredictionSnapshot } from './scoring/predictions.js';
 import { registerAdminRoutes } from './admin/routes.js';
+import { RacingHubCareerProvider } from './providers/racinghub-career.js';
 
 const prisma = new PrismaClient();
+const careerStatsProvider = new RacingHubCareerProvider();
 const yearSchema = z.coerce.number().int().min(1950).max(2100);
 const roundSchema = z.coerce.number().int().min(1).max(60);
 
@@ -335,11 +337,14 @@ export async function buildApp() {
     const parsed = z.object({ limit: z.coerce.number().int().min(1).max(100).default(50), offset: z.coerce.number().int().min(0).default(0), season: yearSchema.optional() }).safeParse(request.query);
     if (!parsed.success) return reply.code(400).send(apiError('INVALID_QUERY', 'Invalid driver-list filters.'));
     const { limit, offset, season } = parsed.data;
-    const [drivers, total] = await Promise.all([
-      prisma.driver.findMany({ orderBy: [{ familyName: 'asc' }, { givenName: 'asc' }], skip: offset, take: limit, include: { entries: { where: season ? { seasonYear: season } : undefined, include: { team: true }, take: 1 } } }),
+    const selectedSeason = season ?? new Date().getUTCFullYear();
+    const [drivers, total, status] = await Promise.all([
+      prisma.driver.findMany({ orderBy: [{ familyName: 'asc' }, { givenName: 'asc' }], skip: offset, take: limit, include: { entries: { where: { seasonYear: selectedSeason, validToRound: null }, orderBy: { validFromRound: 'desc' }, include: { team: true }, take: 1 } } }),
       prisma.driver.count(),
+      statusFor(selectedSeason),
     ]);
-    return { ...dataEnvelope(drivers.map((driver) => ({ id: driver.id, name: driver.displayName, nationality: driver.nationality, team: driver.entries[0]?.team.name ?? null, number: driver.entries[0]?.racingNumber ?? null })), await statusFor(season ?? new Date().getUTCFullYear()) ?? undefined), meta: { season: season ?? new Date().getUTCFullYear(), throughRound: 0, updatedAt: null, stale: true, source: 'jolpica-f1', pagination: { limit, offset, total } } };
+    const envelope = dataEnvelope(drivers.map((driver) => ({ id: driver.id, name: driver.displayName, nationality: driver.nationality, team: driver.entries[0]?.team.name ?? null, number: driver.entries[0]?.racingNumber ?? null })), status ?? undefined);
+    return { ...envelope, meta: { ...envelope.meta, pagination: { limit, offset, total } } };
   });
 
   app.get('/api/v1/drivers/:id', async (request, reply) => {
@@ -369,29 +374,51 @@ export async function buildApp() {
       podiums: raceResults.filter((result) => result.finishPosition !== null && result.finishPosition <= 3).length,
       poles: qualifying.length >= Math.max(0, throughRound - Math.max(1, entry.validFromRound ?? 1) + 1) ? qualifying.filter((result) => result.position === 1).length : null,
     } : { available: false, throughRound, throughRoundName: null, position: null, points: null, wins: null, podiums: null, poles: null };
-    return dataEnvelope({ id: driver.id, name: driver.displayName, nationality: driver.nationality, biography: driver.biography, imageUrl: driver.imageUrl, imageCredit: driver.imageCredit, season: entry?.seasonYear ?? seasonYear, team: entry?.team.name ?? null, number: entry?.racingNumber ?? null, currentStats, career: { available: false, reason: 'Career achievement data is not available from the configured source.' } }, status ?? undefined);
+    return dataEnvelope({ id: driver.id, name: driver.displayName, nationality: driver.nationality, biography: driver.biography, imageUrl: driver.imageUrl, imageCredit: driver.imageCredit, season: entry?.seasonYear ?? seasonYear, team: entry?.team.name ?? null, number: entry?.racingNumber ?? null, currentStats, career: { available: false, reason: 'Career record is loading from the historical statistics source.' } }, status ?? undefined);
+  });
+
+  app.get('/api/v1/drivers/:id/career', async (request, reply) => {
+    const parsed = z.object({ params: z.object({ id: z.string().min(1).max(100) }) }).safeParse({ params: request.params });
+    if (!parsed.success) return reply.code(400).send(apiError('INVALID_DRIVER', 'Invalid driver identifier.'));
+    const driver = await prisma.driver.findUnique({ where: { id: parsed.data.params.id }, select: { displayName: true } });
+    if (!driver) return reply.code(404).send(apiError('DRIVER_NOT_FOUND', 'No driver is available with that identifier.'));
+    try {
+      const career = await careerStatsProvider.getDriverCareer(driver.displayName);
+      return dataEnvelope(career ? { ...career, reason: null } : { available: false, reason: 'No matching career record was returned by the historical statistics source.' });
+    } catch {
+      return dataEnvelope({ available: false, reason: 'Career statistics are temporarily unavailable from the historical statistics source.' });
+    }
   });
 
   app.get('/api/v1/teams', async (request, reply) => {
     const parsed = z.object({ limit: z.coerce.number().int().min(1).max(100).default(50), offset: z.coerce.number().int().min(0).default(0), season: yearSchema.optional() }).safeParse(request.query);
     if (!parsed.success) return reply.code(400).send(apiError('INVALID_QUERY', 'Invalid team-list filters.'));
     const { limit, offset, season } = parsed.data;
-    const [teams, total] = await Promise.all([
-      prisma.constructor.findMany({ orderBy: { name: 'asc' }, skip: offset, take: limit, include: { entries: { where: season ? { seasonYear: season } : undefined, include: { driver: true }, take: 2 } } }),
+    const selectedSeason = season ?? new Date().getUTCFullYear();
+    const [teams, total, status] = await Promise.all([
+      prisma.constructor.findMany({ orderBy: { name: 'asc' }, skip: offset, take: limit, include: { entries: { where: { seasonYear: selectedSeason, validToRound: null }, orderBy: { validFromRound: 'asc' }, include: { driver: true } } } }),
       prisma.constructor.count(),
+      statusFor(selectedSeason),
     ]);
-    return { ...dataEnvelope(teams.map((team) => ({ id: team.id, name: team.name, nationality: team.nationality, drivers: team.entries.map((entry) => entry.driver.displayName) })), await statusFor(season ?? new Date().getUTCFullYear()) ?? undefined), meta: { season: season ?? new Date().getUTCFullYear(), throughRound: 0, updatedAt: null, stale: true, source: 'jolpica-f1', pagination: { limit, offset, total } } };
+    const envelope = dataEnvelope(teams.map((team) => ({ id: team.id, name: team.name, nationality: team.nationality, drivers: team.entries.map((entry) => entry.driver.displayName) })), status ?? undefined);
+    return { ...envelope, meta: { ...envelope.meta, pagination: { limit, offset, total } } };
   });
 
   app.get('/api/v1/teams/:id', async (request, reply) => {
-    const parsed = z.object({ id: z.string().min(1).max(100) }).safeParse(request.params);
+    const parsed = z.object({ params: z.object({ id: z.string().min(1).max(100) }), query: z.object({ season: yearSchema.optional() }) }).safeParse({ params: request.params, query: request.query });
     if (!parsed.success) return reply.code(400).send(apiError('INVALID_TEAM', 'Invalid team identifier.'));
-    const { id } = parsed.data;
-    const team = await prisma.constructor.findUnique({ where: { id }, include: { entries: { orderBy: { seasonYear: 'desc' }, take: 2, include: { season: true, driver: true } } } });
+    const { id } = parsed.data.params;
+    const seasonYear = parsed.data.query.season ?? new Date().getUTCFullYear();
+    const team = await prisma.constructor.findUnique({ where: { id }, include: { entries: { where: { seasonYear, validToRound: null }, orderBy: { validFromRound: 'desc' }, include: { driver: true } } } });
     if (!team) return reply.code(404).send({ error: { code: 'TEAM_NOT_FOUND', message: 'No team is available with that identifier.' } });
-    const entry = team.entries[0];
-    const status = entry ? await statusFor(entry.seasonYear) : null;
-    return dataEnvelope({ id: team.id, name: team.name, nationality: team.nationality, season: entry?.seasonYear ?? null, drivers: team.entries.map((item) => item.driver.displayName), logoUrl: team.logoUrl, logoCredit: team.logoCredit }, status ?? undefined);
+    const status = await statusFor(seasonYear);
+    const throughRound = status?.throughRound ?? 0;
+    const [standing, throughRoundRecord] = throughRound ? await Promise.all([
+      prisma.constructorStanding.findUnique({ where: { seasonYear_throughRound_constructorId: { seasonYear, throughRound, constructorId: team.id } }, select: { position: true, points: true, wins: true } }),
+      prisma.round.findUnique({ where: { seasonYear_number: { seasonYear, number: throughRound } }, select: { name: true } }),
+    ]) : [null, null] as const;
+    const currentStats = standing ? { available: true, throughRound, throughRoundName: throughRoundRecord?.name ?? null, position: standing.position, points: standing.points, wins: standing.wins } : { available: false, throughRound, throughRoundName: null, position: null, points: null, wins: null };
+    return dataEnvelope({ id: team.id, name: team.name, nationality: team.nationality, season: seasonYear, drivers: team.entries.map((item) => item.driver.displayName), currentStats, logoUrl: team.logoUrl, logoCredit: team.logoCredit }, status ?? undefined);
   });
 
   app.setErrorHandler((error, _request, reply) => {

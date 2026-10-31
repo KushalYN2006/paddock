@@ -17,6 +17,6 @@ describe('2026 season scoring', () => {
   });
 
   it('returns zero for invalid and unscored positions', () => {
-    expect(scoreDeadHeats2026([0, -2, 99], 'RACE')).toEqual([0, 0, 0]);
+    expect(scoreDeadHeats2026([null, 0, -2, 99], 'RACE')).toEqual([0, 0, 0, 0]);
   });
 });

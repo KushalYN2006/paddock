@@ -8,6 +8,8 @@ Push-Location $projectRoot
 try {
   & tar.exe -czf $archive `
     --exclude=./.git `
+    --exclude=*.pem `
+    --exclude=./3Dmodel `
     --exclude=./.tmp `
     --exclude=./.pnpm-store `
     --exclude=./node_modules `

@@ -28,8 +28,17 @@ describe('admin standings recalculation', () => {
     expect(rows.map((row) => row.position)).toEqual([1, 2, 3]);
   });
 
-  it('refuses to invent a tie-break when records are identical', () => {
+  it('preserves a tie when race countback records are identical', () => {
     const tie = { points: 10, wins: 0, placeCounts: new Map<number, number>() };
-    expect(() => rankStandingRows([{ entityId: 'a', name: 'A', ...tie }, { entityId: 'b', name: 'B', ...tie }])).toThrow(/verified qualifying data/);
+    expect(rankStandingRows([{ entityId: 'a', name: 'A', ...tie }, { entityId: 'b', name: 'B', ...tie }]).map((row) => row.position)).toEqual([1, 1]);
+  });
+
+  it('uses qualifying results after race countback remains tied', () => {
+    const tie = { points: 10, wins: 0, placeCounts: new Map<number, number>() };
+    const rows = rankStandingRows([
+      { entityId: 'b', name: 'B', ...tie, qualifyingPlaces: new Map([[2, 1]]) },
+      { entityId: 'a', name: 'A', ...tie, qualifyingPlaces: new Map([[1, 1]]) },
+    ]);
+    expect(rows.map((row) => [row.entityId, row.position])).toEqual([['a', 1], ['b', 2]]);
   });
 });

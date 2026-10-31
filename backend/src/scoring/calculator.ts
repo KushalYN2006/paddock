@@ -17,7 +17,7 @@ export function buildCalculatorSummary(standings: CalculatorStanding[], rounds: 
     pastUnconfirmedRounds,
     maximumPointsAvailable: maxPerDriver,
     remainingRounds: remaining,
-    scoring: { version: 'FIA-2026-A2.2-ISS02', racePoints: [25, 18, 15, 12, 10, 8, 6, 4, 2, 1], sprintPoints: [8, 7, 6, 5, 4, 3, 2, 1], fastestLapBonus: false, sourceUrl: 'https://www.fia.com/system/files/documents/fia_2026_f1_regulations_-_section_a_general_provisions_-_iss_02_-_2026-02-27.pdf' },
+    scoring: { version: 'FIA-2026-A-ISS03', racePoints: [25, 18, 15, 12, 10, 8, 6, 4, 2, 1], sprintPoints: [8, 7, 6, 5, 4, 3, 2, 1], fastestLapBonus: false, sourceUrl: 'https://www.fia.com/system/files/documents/fia_2026_f1_regulations_-_section_a_general_provisions_-_iss_03_-_2026-06-25.pdf' },
     contenders: standings.map((row) => {
       const pointsToLeader = Math.max(0, leaderPoints - row.points);
       const maximumFinalPoints = row.points + maxPerDriver;
@@ -63,7 +63,7 @@ export function calculateScenario(input: {
   projected.sort((a, b) => b.projectedPoints - a.projectedPoints || a.position - b.position);
   const leaderPoints = projected[0]?.projectedPoints ?? 0;
   return {
-    ruleSet: 'FIA-2026-A2.2-ISS02',
+    ruleSet: 'FIA-2026-A-ISS03',
     assumptions: ['Unassigned drivers and sessions receive no scenario points.', 'Only the listed upcoming race and Sprint finishes are added to current confirmed points.', 'A tie in projected championship points keeps the current order; official season tie-break rules may change the order.'],
     standings: projected.map((row, index) => ({ ...row, projectedPosition: index + 1, gapToProjectedLeader: leaderPoints - row.projectedPoints })),
   };

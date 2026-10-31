@@ -24,7 +24,7 @@ describe('public companion shell', () => {
     const summary = {
       throughRound: 5, racesRemaining: 1, sprintRacesRemaining: 1, pastUnconfirmedRounds: 0, maximumPointsAvailable: 33, entrantCount: 2,
       remainingRounds: [{ round: 6, name: 'Monaco Grand Prix', isSprint: true, isFuture: true }],
-      scoring: { version: 'FIA-2026-A2.2-ISS02', racePoints: [25, 18], sprintPoints: [8, 7], fastestLapBonus: false, sourceUrl: 'https://www.fia.com/' },
+      scoring: { version: 'FIA-2026-A-ISS03', racePoints: [25, 18], sprintPoints: [8, 7], fastestLapBonus: false, sourceUrl: 'https://www.fia.com/' },
       contenders: [{ id: 'd1', name: 'Driver One', position: 1, points: 50, pointsToLeader: 0, maximumFinalPoints: 83, mathematicallyEliminated: false, titleStatus: 'ALIVE' }, { id: 'd2', name: 'Driver Two', position: 2, points: 40, pointsToLeader: 10, maximumFinalPoints: 73, mathematicallyEliminated: false, titleStatus: 'ALIVE' }],
     };
     const prediction = { available: false, season: 2026, throughRound: 5, finalRound: 7, modelVersion: 'form-points-blend-v1', label: 'Estimate, not a guarantee', method: '60% season pace and 40% recent form.', reason: 'Not enough validated history for a reliable estimate.', validation: { cases: 0, blendChampionAccuracy: null, pointsChampionAccuracy: null, blendMeanAbsoluteError: null, pointsMeanAbsoluteError: null, passed: false }, estimates: [] };
@@ -73,17 +73,34 @@ describe('public companion shell', () => {
     expect(screen.getByText('Pit-stop records are not yet imported and validated for this event.')).toBeTruthy();
   });
 
-  it('shows confirmed driver-season statistics separately from unavailable career achievements', async () => {
+  it('shows confirmed season statistics separately from sourced career achievements', async () => {
     const driver = { id: 'd1', name: 'Driver One', team: 'Team One', nationality: 'Example', number: 7, biography: null, imageUrl: null, currentStats: { available: true, throughRound: 5, throughRoundName: 'Example Grand Prix', position: 2, points: 88, wins: 1, podiums: 2, poles: null }, career: { available: false, reason: 'Career achievement data is not available from the configured source.' } };
+    const career = { available: true, championships: 7, starts: 398, wins: 106, podiums: 208, poles: 104, fastestLaps: 69, sourceUrl: 'https://racinghub.net/drivers/driver-one', reason: null };
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
-      const data = url.includes('/drivers/d1') ? driver : url.includes('/seasons') ? [] : { season: 2026, throughRound: 5, updatedAt: null, stale: false, provider: 'test' };
+      const data = url.endsWith('/drivers/d1/career') ? career : url.includes('/drivers/d1?') ? driver : url.includes('/seasons') ? [] : { season: 2026, throughRound: 5, updatedAt: null, stale: false, provider: 'test' };
       return { ok: true, json: async () => ({ data, meta: {} }) } as Response;
     }));
     render(<MemoryRouter initialEntries={['/drivers/d1']}><App /></MemoryRouter>);
     expect(await screen.findByText('88')).toBeTruthy();
     expect(screen.getByText('P2')).toBeTruthy();
-    expect(screen.getByText('Career achievements not available')).toBeTruthy();
+    expect(await screen.findByText('WORLD CHAMPIONSHIPS')).toBeTruthy();
+    expect(screen.getByText('106')).toBeTruthy();
     expect(screen.getByText('Not available')).toBeTruthy();
+  });
+
+  it('shows confirmed constructor-season standings on the team profile', async () => {
+    const team = { id: 't1', name: 'Team One', drivers: ['Driver One', 'Driver Two'], currentStats: { available: true, throughRound: 18, throughRoundName: 'Final Example Grand Prix', position: 1, points: 607, wins: 12 } };
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      const data = url.includes('/teams/t1') ? team : { season: 2026, throughRound: 18, updatedAt: null, stale: false, provider: 'test' };
+      return { ok: true, json: async () => ({ data, meta: {} }) } as Response;
+    }));
+    render(<MemoryRouter initialEntries={['/teams/t1']}><App /></MemoryRouter>);
+    expect(await screen.findByRole('heading', { name: 'Team One' })).toBeTruthy();
+    expect(await screen.findByText('607')).toBeTruthy();
+    expect(screen.getByText('P1')).toBeTruthy();
+    expect(screen.getByText('12')).toBeTruthy();
+    expect(screen.queryByText('Season statistics unavailable')).toBeNull();
   });
 });
