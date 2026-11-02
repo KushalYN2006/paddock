@@ -1,4 +1,10 @@
-export const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? '/api/v1').replace(/\/$/, '');
+const configuredBaseUrl = import.meta.env.VITE_API_BASE_URL;
+
+export const apiBaseUrl = (
+  typeof configuredBaseUrl === 'string' && configuredBaseUrl.trim() !== ''
+    ? configuredBaseUrl.trim()
+    : ''
+).replace(/\/$/, '');
 
 export interface ApiMeta {
   season: number;
@@ -118,6 +124,7 @@ export interface PredictionEstimate {
 }
 
 export async function getApi<T>(path: string, signal?: AbortSignal): Promise<Envelope<T>> {
+  if (!apiBaseUrl) throw new Error('Backend API is not configured for this deployment.');
   const response = await fetch(`${apiBaseUrl}${path}`, {
     headers: { Accept: 'application/json' },
     signal,
@@ -127,6 +134,7 @@ export async function getApi<T>(path: string, signal?: AbortSignal): Promise<Env
 }
 
 export async function postApi<T>(path: string, body: unknown): Promise<Envelope<T>> {
+  if (!apiBaseUrl) throw new Error('Backend API is not configured for this deployment.');
   const response = await fetch(`${apiBaseUrl}${path}`, { method: 'POST', headers: { Accept: 'application/json', 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
   if (!response.ok) {
     const payload = await response.json().catch(() => null) as { error?: { message?: string } } | null;
@@ -142,6 +150,7 @@ function readCsrfCookie() {
 }
 
 export async function getAdmin<T>(path: string, signal?: AbortSignal): Promise<T> {
+  if (!apiBaseUrl) throw new Error('Backend API is not configured for this deployment.');
   const response = await fetch(`${apiBaseUrl}${path}`, { headers: { Accept: 'application/json' }, credentials: 'include', signal });
   if (!response.ok) {
     const payload = await response.json().catch(() => null) as { error?: { message?: string } } | null;
@@ -152,6 +161,7 @@ export async function getAdmin<T>(path: string, signal?: AbortSignal): Promise<T
 }
 
 export async function sendAdmin<T>(path: string, method: 'POST' | 'PUT' | 'PATCH' | 'DELETE', body?: unknown): Promise<T> {
+  if (!apiBaseUrl) throw new Error('Backend API is not configured for this deployment.');
   const csrf = path === '/admin/session' && method === 'POST' ? undefined : readCsrfCookie();
   const response = await fetch(`${apiBaseUrl}${path}`, {
     method,

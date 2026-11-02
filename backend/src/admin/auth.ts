@@ -33,7 +33,8 @@ function originIsTrusted(request: FastifyRequest) {
   try {
     const originUrl = new URL(origin);
     const configuredOrigin = new URL(env.CORS_ORIGIN);
-    return originUrl.origin === configuredOrigin.origin || originUrl.host === request.headers.host;
+    const trustedLocal = originUrl.protocol === 'http:' && (originUrl.hostname === 'localhost' || originUrl.hostname === '127.0.0.1');
+    return originUrl.origin === configuredOrigin.origin || originUrl.host === request.headers.host || trustedLocal;
   } catch { return false; }
 }
 

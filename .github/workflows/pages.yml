@@ -38,7 +38,8 @@ jobs:
         run: pnpm --dir frontend build
         env:
           BASE_PATH: /paddock/
-          VITE_API_BASE_URL: http://127.0.0.1:3000/api/v1
+          # Pages is static-only for now. Keep this empty; never point it at localhost.
+          VITE_API_BASE_URL: ''
       - name: Prepare SPA fallback
         run: cp frontend/dist/index.html frontend/dist/404.html && touch frontend/dist/.nojekyll
       - name: Upload Pages artifact

@@ -9,7 +9,7 @@ const envSchema = z.object({
   DATA_PROVIDER_URL: z.url().default('https://api.jolpi.ca/ergast/f1'),
   CORS_ORIGIN: z.url().default('http://localhost:5173'),
   PORT: z.coerce.number().int().min(1).max(65535).default(3000),
-  HOST: z.string().default('0.0.0.0'),
+  HOST: z.string().default('127.0.0.1'),
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
 });
 

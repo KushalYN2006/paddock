@@ -300,7 +300,7 @@ function TeamShowroom({ season }: { season: number }) {
       getApi<Standing[]>(`/seasons/${season}/standings/drivers`, controller.signal),
     ]).then(([teamResult, driverResult, constructorResult, driverStandingResult]) => {
       if (controller.signal.aborted) return;
-      if (teamResult.status === 'fulfilled') setTeams(teamResult.value.data);
+      if (teamResult.status === 'fulfilled' && teamResult.value.data.length > 0) setTeams(teamResult.value.data);
       else { setTeams([]); setTeamLoadFailed(true); }
       setDrivers(driverResult.status === 'fulfilled' ? driverResult.value.data : []);
       if (constructorResult.status === 'fulfilled') {
@@ -375,11 +375,13 @@ function TeamShowroom({ season }: { season: number }) {
 function TeamDetail({ season }: { season: number }) {
   const id = useLocation().pathname.split('/').pop() ?? '';
   const [team, setTeam] = useState<DirectoryTeam | null>(null);
-  const teamModel = team ? getTeamCarModel(team.name) : null;
+
   const teamName = team?.name ?? id.split(/[-_]/).filter(Boolean).map((part) => part[0]!.toUpperCase() + part.slice(1)).join(' ');
+  const teamModel = team ? getTeamCarModel(team.name) : (getTeamCarModel(teamName) ?? getTeamCarModel(id));
+
   useEffect(() => { const controller = new AbortController(); getApi<DirectoryTeam>(`/teams/${id}?season=${season}`, controller.signal).then(({ data }) => setTeam(data)).catch(() => setTeam(null)); return () => controller.abort(); }, [id, season]);
   return <PageHeader eyebrow={`${season} SEASON · CONSTRUCTOR PROFILE`} title={teamName || 'Team profile'} intro={team?.drivers?.length ? `Current drivers · ${team.drivers.join(' and ')}` : team ? 'Team details and season statistics will appear when verified data is available.' : 'Team data is unavailable right now; a generic concept model is still available below.'}>
-    {id && <Suspense fallback={<div className="car-viewer-loading glass-card" role="status">Opening the garage…</div>}><TeamCarViewer teamName={teamName || 'Formula 1'} season={season} modelUrl={team ? (teamModel ? getTeamCarModelUrl(teamModel) : null) : null} modelNote={teamModel ? `${teamModel.displayName} · Local project asset (${teamModel.archive}). Community 3D visualization; not an official Formula 1 or FIA model.` : undefined} /></Suspense>}
+    {id && <Suspense fallback={<div className="car-viewer-loading glass-card" role="status">Opening the garage…</div>}><TeamCarViewer teamName={teamName || 'Formula 1'} season={season} modelUrl={teamModel ? getTeamCarModelUrl(teamModel) : undefined} modelNote={teamModel ? `${teamModel.displayName} · Local project asset (${teamModel.archive}). Community 3D visualization; not an official Formula 1 or FIA model.` : undefined} /></Suspense>}
     {team?.currentStats.available ? <section className="team-profile-section"><div className="section-heading"><div><div className="eyebrow">CONFIRMED SEASON RECORD</div><h2>Current-season statistics</h2></div><span className="data-chip">THROUGH R{team.currentStats.throughRound}{team.currentStats.throughRoundName ? ` · ${team.currentStats.throughRoundName.toUpperCase()}` : ''}</span></div><div className="driver-stat-grid"><article className="glass-card driver-stat-card"><span>CONSTRUCTOR POSITION</span><strong>P{team.currentStats.position}</strong></article><article className="glass-card driver-stat-card"><span>POINTS</span><strong>{team.currentStats.points}</strong></article><article className="glass-card driver-stat-card"><span>WINS</span><strong>{team.currentStats.wins}</strong></article></div></section> : <div className="coming-panel glass-card"><span className="coming-glyph">T</span><EmptyValue title={team ? 'Season statistics unavailable' : 'Team not available'} detail="Season position and achievements will be shown when reliable source data is available." /></div>}
   </PageHeader>;
 }
