@@ -670,10 +670,8 @@ function LearnPage({ season }: { season: number }) {
     const answerIndex = selected[question.id];
     if (answerIndex === undefined || feedback[question.id]) return;
     try {
-      const result = await fetch(`/api/v1/learn/quizzes/${question.id}/answers`, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify({ answerIndex }) });
-      if (!result.ok) throw new Error('Quiz unavailable');
-      const payload = await result.json() as { data: QuizFeedback };
-      setFeedback((current) => ({ ...current, [question.id]: payload.data }));
+      const result = await postApi<QuizFeedback>(`/learn/quizzes/${question.id}/answers`, { answerIndex });
+      setFeedback((current) => ({ ...current, [question.id]: result.data }));
     } catch { setFailed(true); }
   };
   const score = Object.values(feedback).filter((result) => result.correct).length;

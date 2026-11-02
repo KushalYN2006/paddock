@@ -6,6 +6,7 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   const proxyTarget = env.API_PROXY_TARGET;
   return {
+    base: env.BASE_PATH ?? '/',
     plugins: [react(), tailwindcss()],
     build: {
       rollupOptions: {

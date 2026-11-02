@@ -41,7 +41,7 @@ async function statusFor(year: number) {
 export async function buildApp() {
   const app = Fastify({ logger: false });
   await app.register(helmet);
-  await app.register(cors, { origin: env.CORS_ORIGIN, credentials: true });
+  await app.register(cors, { origin: [env.CORS_ORIGIN, 'https://kushalyn2006.github.io'], credentials: true });
   await app.register(rateLimit, { max: 120, timeWindow: '1 minute' });
   await app.register(cookie);
   await registerAdminRoutes(app, prisma);

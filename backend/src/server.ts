@@ -3,7 +3,7 @@ import { env } from './config/env.js';
 
 const app = await buildApp();
 try {
-  await app.listen({ host: '0.0.0.0', port: env.PORT });
+  await app.listen({ host: env.HOST, port: env.PORT });
 } catch (error) {
   console.error('API server failed to start:', error);
   process.exitCode = 1;
